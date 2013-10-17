@@ -1,0 +1,15 @@
+This is the IRremote library for the PIC18F2550 (e.g. used on USB Infrared Toy from dangerousprototypes.com).
+
+It is an port by Marco Koehler of the IRremote library for the Arduino from Ken Shirriff. 
+
+To download from github (http://github.com/stino/Pic-IRremote), click on the "Downloads" link in the upper right, click "Download as zip", and get a zip file.
+
+To install, move the downloaded IRremote directory to:
+your project folder and the files to your project inside mplab.
+
+At the moment only XC8 compiler is supported but it should be possible to support C18 compiler as well.
+
+After installation you should have files such as:
+/IRremote/IRremote.c
+
+Copyright 2013 Marco Koehler
