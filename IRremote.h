@@ -39,7 +39,21 @@ typedef struct {
 #define JVC 8
 #define SANYO 9
 #define MITSUBISHI 10
+#define SIGMA 11
 #define UNKNOWN -1
+
+//Bit length of the protocolls
+#define NEC_BITS 32
+#define SIGMA_BITS 16
+#define SONY_BITS 12
+#define SANYO_BITS 12
+#define MITSUBISHI_BITS 16
+#define MIN_RC5_SAMPLES 11
+#define MIN_RC6_SAMPLES 1
+#define PANASONIC_BITS 48
+#define PANASONIC_BITS_ADR 16
+#define PANASONIC_BITS_VAL 32
+#define JVC_BITS 16
 
 // Decoded value for NEC when a repeat code is received
 #define REPEAT 0xffffffff
@@ -58,6 +72,7 @@ extern void ir_enableIRIn(void);
 extern void ir_resume(void);
 extern void ir_sendNECRepeatFrame(void);
 extern void ir_sendNEC(unsigned long data, int nbits);
+extern void ir_sendSigma(unsigned long data, int nbits);
 extern void ir_sendSony(unsigned long data, int nbits);
 extern void ir_sendRaw(unsigned int buf[], int len, int hz);
 extern void ir_sendRC5(unsigned long data, int nbits);
@@ -66,5 +81,6 @@ extern void ir_sendDISH(unsigned long data, int nbits);
 extern void ir_sendSharp(unsigned long data, int nbits);
 extern void ir_sendPanasonic(unsigned int address, unsigned long data);
 extern void ir_sendJVC(unsigned long data, int nbits, int repeat); // *Note instead of sending the REPEAT constant if you want the JVC repeat signal sent, send the original code value and change the repeat argument from 0 to 1. JVC protocol repeats by skipping the header NOT by sending a separate code value like NEC does.
+extern void ir_delay(unsigned long time);
 
 #endif

@@ -25,13 +25,13 @@ volatile irparams_t irparams;
 void ir_sendNECRepeatFrame(void)
 {
   ir_enableIROut(38);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
   ir_mark(NEC_HDR_MARK);
   ir_space(NEC_RPT_SPACE);
   ir_mark(NEC_BIT_MARK);
   ir_space(0);
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 
@@ -40,7 +40,7 @@ void ir_sendNEC(unsigned long data, int nbits)
 {
   int i = 0;
   ir_enableIROut(38);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
 
   ir_mark(NEC_HDR_MARK);
@@ -58,14 +58,14 @@ void ir_sendNEC(unsigned long data, int nbits)
   }
   ir_mark(NEC_BIT_MARK);
   ir_space(0);
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 
 void sendSony(unsigned long data, int nbits) {
   int i = 0;
   ir_enableIROut(40);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
   ir_mark(SONY_HDR_MARK);
   ir_space(SONY_HDR_SPACE);
@@ -74,14 +74,50 @@ void sendSony(unsigned long data, int nbits) {
     if (data & TOPBIT) {
       ir_mark(SONY_ONE_MARK);
       ir_space(SONY_HDR_SPACE);
-    } 
+    }
     else {
       ir_mark(SONY_ZERO_MARK);
       ir_space(SONY_HDR_SPACE);
     }
     data <<= 1;
   }
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
+  TIMER_ENABLE_INTR;
+}
+
+void ir_sendSigma(unsigned long data, int nbits) {
+  int i = 0;
+  if (nbits != SIGMA_BITS)
+  {
+      return;
+  }
+  data = data << (32 - nbits);
+  ir_enableIROut(38);
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  TIMER_DISABLE_INTR;
+  ir_mark(SIGMA_HDR_MARK);
+  ir_space(SIGMA_HDR_SPACE);
+  for (i = 0; i < nbits; i++) {
+    if (data & TOPBIT) {
+      ir_mark(SIGMA_BIT_MARK);
+      ir_space(SIGMA_ONE_SPACE);
+    } 
+    else {
+      ir_mark(SIGMA_BIT_MARK);
+      ir_space(SIGMA_ZERO_SPACE);
+    }
+    data <<= 1;
+    //after first byte we had to send an additional BIT_MARK and the NEXT_SPACE
+    if (i == 7)
+    {
+      ir_mark(SIGMA_BIT_MARK);
+      ir_space(SIGMA_NEXT_SPACE);
+    }
+  }
+  // the final BIT_MARK
+  ir_mark(SIGMA_BIT_MARK);
+  ir_space(0);
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 
@@ -89,7 +125,7 @@ void ir_sendRaw(unsigned int buf[], int len, int hz)
 {
   int i = 0;
   ir_enableIROut(hz);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
   for (i = 0; i < len; i++) {
     if (i & 1) {
@@ -100,7 +136,7 @@ void ir_sendRaw(unsigned int buf[], int len, int hz)
     }
   }
   ir_space(0); // Just to be sure
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 
@@ -109,7 +145,7 @@ void sendRC5(unsigned long data, int nbits)
 {
   int i = 0;
   ir_enableIROut(36);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
   data = data << (32 - nbits);
   ir_mark(RC5_T1); // First start bit
@@ -127,7 +163,7 @@ void sendRC5(unsigned long data, int nbits)
     data <<= 1;
   }
   ir_space(0); // Turn off at end
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 
@@ -137,7 +173,7 @@ void sendRC6(unsigned long data, int nbits)
   int t = 0;
   int i = 0;
   ir_enableIROut(36);
-  // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+  // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
   TIMER_DISABLE_INTR;
   data = data << (32 - nbits);
   ir_mark(RC6_HDR_MARK);
@@ -165,13 +201,13 @@ void sendRC6(unsigned long data, int nbits)
     data <<= 1;
   }
   ir_space(0); // Turn off at end
-  // Enable the Timer0 Interrupt again (which is used for receiving IR)
+  // Enable the Timer Interrupt again (which is used for receiving IR)
   TIMER_ENABLE_INTR;
 }
 void sendPanasonic(unsigned int address, unsigned long data) {
     int i=0;
     ir_enableIROut(35);
-    // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+    // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
     TIMER_DISABLE_INTR;
     ir_mark(PANASONIC_HDR_MARK);
     ir_space(PANASONIC_HDR_SPACE);
@@ -197,14 +233,14 @@ void sendPanasonic(unsigned int address, unsigned long data) {
     }
     ir_mark(PANASONIC_BIT_MARK);
     ir_space(0);
-    // Enable the Timer0 Interrupt again (which is used for receiving IR)
+    // Enable the Timer Interrupt again (which is used for receiving IR)
     TIMER_ENABLE_INTR;
 }
 void sendJVC(unsigned long data, int nbits, int repeat)
 {
     int i = 0;
     ir_enableIROut(38);
-    // Disable the Timer0 Interrupt (which is used for receiving IR) to avoid back coupling while sending
+    // Disable the Timer Interrupt (which is used for receiving IR) to avoid back coupling while sending
     TIMER_DISABLE_INTR;
     data = data << (32 - nbits);
     if (!repeat){
@@ -224,7 +260,7 @@ void sendJVC(unsigned long data, int nbits, int repeat)
     }
     ir_mark(JVC_BIT_MARK);
     ir_space(0);
-    // Enable the Timer0 Interrupt again (which is used for receiving IR)
+    // Enable the Timer Interrupt again (which is used for receiving IR)
     TIMER_ENABLE_INTR;
 }
 
@@ -267,7 +303,7 @@ void ir_enableIRIn(void) {
   ir_pinMode(irparams.recvpin, INPUT);
   
   DISABLE_INTERRUPTS;
-  // setup pulse clock timer interrupt for timer0
+  // setup pulse clock timer interrupt for Timer
   ir_timerCfgNorm();
   ir_timerRst();
 
@@ -286,7 +322,7 @@ void ir_blink13(int blinkflag)
     ir_pinMode(BLINKLED_PIN, OUTPUT);
 }
 
-// TIMER2 interrupt code to collect raw data.
+// TIMER interrupt code to collect raw data.
 // Widths of alternating SPACE, MARK are recorded in rawbuf.
 // Recorded in ticks of 50 microseconds.
 // rawlen counts the number of entries recorded so far.
@@ -294,11 +330,12 @@ void ir_blink13(int blinkflag)
 // As soon as a SPACE gets long, ready is set, state switches to IDLE, timing of SPACE continues.
 // As soon as first MARK arrives, gap width is recorded, ready is cleared, and new logging starts
 
-// call this function inside your InterruptServiceLow()
+// call this function inside your InterruptServiceHigh()
 void ir_interruptService(void)
 {
   unsigned char irdata = 0;
-  
+
+  // timer is used for sampling IR signal
   if (TIMER_INT_FLAG == 1)
   {
     TIMER_INT_FLAG = 0;
@@ -385,6 +422,9 @@ int ir_decode(decode_results *results) {
   if (irparams.rcvstate != STATE_STOP) {
     return ERR;
   }
+  if (ir_decodeSigma(results)) {
+     return DECODED;
+  }
   if (ir_decodeNEC(results)) {
     return DECODED;
   }
@@ -409,6 +449,7 @@ int ir_decode(decode_results *results) {
   if (ir_decodeJVC(results)) {
      return DECODED;
   }
+
   // decodeHash returns a hash on any input.
   // Thus, it needs to be last in the list.
   // If you add any decodes, add them before this.
@@ -469,6 +510,74 @@ static long ir_decodeNEC(decode_results *results) {
   results->decode_type = NEC;
   return DECODED;
 }
+
+
+// SIGMA ASC 333
+static long ir_decodeSigma(decode_results *results) {
+  int i = 0;
+  long data = 0;
+  int offset = 1; // Skip first space
+  // Initial mark
+  if (!MATCH_MARK(results->rawbuf[offset], SIGMA_HDR_MARK)) {
+    return ERR;
+  }
+  offset++;
+
+  
+  if (irparams.rawlen < 2 * SIGMA_BITS + 6) {
+    return ERR;
+  }
+  
+  // Initial space
+  if (!MATCH_SPACE(results->rawbuf[offset], SIGMA_HDR_SPACE)) {
+    return ERR;
+  }
+  offset++;
+
+  //first byte
+  for (i = 0; i < SIGMA_BITS; i++) {
+    if (!MATCH_MARK(results->rawbuf[offset], SIGMA_BIT_MARK)) {
+      return ERR;
+    }
+    offset++;
+    if (MATCH_SPACE(results->rawbuf[offset], SIGMA_ONE_SPACE)) {
+      data = (data << 1) | 1;
+    }
+    else if (MATCH_SPACE(results->rawbuf[offset], SIGMA_ZERO_SPACE)) {
+      data <<= 1;
+    }
+    else {
+      return ERR;
+    }
+    offset++;
+
+    // between the two bytes is an extra space
+    if (i == 7)
+    {
+        // next space
+        if (!MATCH_MARK(results->rawbuf[offset], SIGMA_BIT_MARK)) {
+            return ERR;
+        }
+        offset++;
+        if (!MATCH_SPACE(results->rawbuf[offset], SIGMA_NEXT_SPACE)) {
+            return ERR;
+        }
+        offset++;
+    }
+  }
+
+  //final mark bit
+  if (!MATCH_MARK(results->rawbuf[offset], SIGMA_BIT_MARK)) {
+    return ERR;
+  }
+
+  // Success
+  results->bits = 2 * SIGMA_BITS;
+  results->value = data;
+  results->decode_type = SIGMA;
+  return DECODED;
+}
+
 
 static long ir_decodeSony(decode_results *results) {
   long data = 0;

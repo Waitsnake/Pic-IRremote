@@ -39,6 +39,13 @@
 #define NEC_ZERO_SPACE  560
 #define NEC_RPT_SPACE 2250
 
+#define SIGMA_HDR_MARK  8000 //8520
+#define SIGMA_HDR_SPACE 4000 //4240
+#define SIGMA_NEXT_SPACE 4000 //4240
+#define SIGMA_BIT_MARK  500  //520
+#define SIGMA_ONE_SPACE 1500 //1560
+#define SIGMA_ZERO_SPACE 500 //520
+
 #define SONY_HDR_MARK 2400
 #define SONY_HDR_SPACE  600
 #define SONY_ONE_MARK 1200
@@ -129,17 +136,6 @@
 
 #define TOPBIT 0x80000000
 
-#define NEC_BITS 32
-#define SONY_BITS 12
-#define SANYO_BITS 12
-#define MITSUBISHI_BITS 16
-#define MIN_RC5_SAMPLES 11
-#define MIN_RC6_SAMPLES 1
-#define PANASONIC_BITS 48
-#define PANASONIC_BITS_ADR 16
-#define PANASONIC_BITS_VAL 32
-#define JVC_BITS 16
-
 
 // information for the interrupt handler
 typedef struct {
@@ -155,11 +151,11 @@ irparams_t;
 // Defined in IRremote.c
 extern volatile irparams_t irparams;
 
+
 ////////////////////////////////////////////////////////////
 // internal Prototypes                                    //
 ////////////////////////////////////////////////////////////
 
-static void ir_delay(unsigned char time);
 static void ir_delayMicroseconds(int time);
 static void ir_pinMode(unsigned int pin, unsigned mode);
 static unsigned ir_digitalRead(unsigned int pin);
@@ -172,6 +168,7 @@ static void ir_mark(int time);
 static void ir_space(int time);
 static int ir_getRClevel(decode_results *results, int *offset, int *used, int t1);
 static long ir_decodeNEC(decode_results *results);
+static long ir_decodeSigma(decode_results *results);
 static long ir_decodeSony(decode_results *results);
 static long ir_decodeSanyo(decode_results *results);
 static long ir_decodeMitsubishi(decode_results *results);
@@ -194,12 +191,17 @@ static int MATCH_SPACE(int measured_ticks, int desired_us);
 #define USECPERTICK 50       // microseconds per clock interrupt tick
 
 // defines for timers
+#define MAX_TMR_VAL          65535
+#define US_PER_SEC           1000000
 #define TIMER_ENABLE_PWM     (CCPR1L=half_pwm)
 #define TIMER_DISABLE_PWM    (CCPR1L=0)
-#define TIMER_ENABLE_INTR    (INTCONbits.TMR0IE=1)
-#define TIMER_DISABLE_INTR   (INTCONbits.TMR0IE=0)
+#define TIMER_ENABLE_INTR    (PIE2bits.TMR3IE=1)   
+#define TIMER_DISABLE_INTR   (PIE2bits.TMR3IE=0)
+#define TIMER_INT_FLAG       PIR2bits.TMR3IF
 #define TIMER_PWM_PIN        13
-#define TIMER_INT_FLAG       INTCONbits.TMR0IF
+#define DELAY_INT_FLAG       PIR1bits.TMR1IF
+#define DELAY_PRESCALE       4
+#define DELAY_TICKS_PER_US   (SYSCLOCK/US_PER_SEC/DELAY_PRESCALE)
 
 // defines for blinking the LED
 #define BLINKLED_PIN         2
@@ -211,29 +213,33 @@ static int MATCH_SPACE(int measured_ticks, int desired_us);
 #define DISABLE_INTERRUPTS   (INTCONbits.GIEH = 0)
 #define ENABLE_INTERRUPTS    (INTCONbits.GIEH = 1)
 
-
 ////////////////////////////////////////////////////////////
-// PIC2550 hardware depending fundtions                   //
+// PIC2550 hardware depending functions                   //
 ////////////////////////////////////////////////////////////
 
 volatile unsigned char half_pwm = 0;
 
 static void ir_timerRst(void) {
-	TMR0H = (65535 - (USECPERTICK*(SYSCLOCK/1000000)))/256;
-	TMR0L = (65535 - (USECPERTICK*(SYSCLOCK/1000000)))%256;
+    /*timer 3 for ir-receiving*/
+    TMR3H = (MAX_TMR_VAL - (USECPERTICK*(SYSCLOCK/US_PER_SEC)))/256;
+    TMR3L = (MAX_TMR_VAL - (USECPERTICK*(SYSCLOCK/US_PER_SEC)))%256;
 }
 
 static void ir_timerCfgNorm(void) {
-  T0CON = 0b00001000;
-  TMR0H = (65535 - (USECPERTICK*(SYSCLOCK/1000000)))/256;
-  TMR0L = (65535 - (USECPERTICK*(SYSCLOCK/1000000)))%256;
-  INTCONbits.TMR0IF = 0;
-  INTCON2bits.TMR0IP = 1;
-  T0CONbits.TMR0ON = 1;
+  /*timer 3 for ir-receiving*/
+  INTCONbits.GIEL = 1; //enable low prio
+  T3CON = 0b10000100;
+  TMR3H = (MAX_TMR_VAL - (USECPERTICK*(SYSCLOCK/US_PER_SEC)))/256;
+  TMR3L = (MAX_TMR_VAL - (USECPERTICK*(SYSCLOCK/US_PER_SEC)))%256;
+  PIR2bits.TMR3IF = 0;
+  IPR2bits.TMR3IP = 1;
+  T3CONbits.TMR3ON = 1;
 }
+
 
 static void ir_timerCfgKhz(unsigned char val) {
   const unsigned char pwmval = SYSCLOCK / 4000 / val;
+  /*timer 2 in PWM mode for carrier freq during ir-sending*/
   PIR1bits.TMR2IF=0;
   IPR1bits.TMR2IP=1;
   PIE1bits.TMR2IE=0;
@@ -297,23 +303,23 @@ static void ir_pinMode(unsigned int pin, unsigned mode)
 
 static void ir_delayMicroseconds(int time)
 {
-    // well this routine fits at moment only the Pic18F2550 for IR_Toy configuration
-    // running at 48Mhz (TCY of 12000000)
-    // but it looks much better at an oszi than using Delay1yyTCYx functions from microchip
-
-    int count=time;
-    do
-    {
-        asm("NOP"); asm("NOP");
-
-        count--;
-    }while(count != 0);
-
+    unsigned long tm_val = MAX_TMR_VAL - (time*DELAY_TICKS_PER_US);
+    /*using timer 1 for a delay during ir-sending*/
+    T1CON = 0b10100100; /*16bit timer using a prescale of 4*/
+    TMR1H = tm_val/256;
+    TMR1L = tm_val%256;
+    DELAY_INT_FLAG = 0;//clear interrupt flag
+    IPR1bits.TMR1IP = 1;//set to high prio
+    INTCONbits.GIEH = 1;//enable high prio
+    INTCONbits.GIEL = 1;//enable low prio
+    T1CONbits.TMR1ON = 1;// start timer
+    while(DELAY_INT_FLAG == 0){};//wait for timer interrupt flag
+    T1CONbits.TMR1ON = 0;// disable timer
 }
 
-static void ir_delay(unsigned char time)
+static void ir_delay(unsigned long time)
 {
-    unsigned int i;
+    unsigned long i;
     for(i=0; i<time; i++) ir_delayMicroseconds(1000);
 }
 
